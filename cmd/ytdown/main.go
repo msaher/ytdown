@@ -1,12 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"image/color"
 	"log"
 	"os"
 	"os/exec"
-	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -23,31 +23,24 @@ import (
 type C = layout.Context
 type D = layout.Dimensions
 
-type LineWriter struct {
-	Lines []string
-	cur   strings.Builder
-	mu    sync.Mutex
+// doesn't actually write to editor because Gio widgets aren't thread safe
+type EditorWriter struct {
+    mu   sync.Mutex
+    buf bytes.Buffer
+    win  *app.Window
 }
 
-func (lw *LineWriter) Write(p []byte) (int, error) {
-	lw.mu.Lock()
-	defer lw.mu.Unlock()
+func (w *EditorWriter) Write(p []byte) (n int, err error) {
+	w.mu.Lock()
+	b := &w.buf
+	n, err = b.Write(p)
+	w.mu.Unlock()
 
-	for _, b := range p {
-		switch b {
-		case '\r':
-			continue
-
-		case '\n':
-			lw.Lines = append(lw.Lines, lw.cur.String())
-			lw.cur.Reset()
-
-		default:
-			lw.cur.WriteByte(b)
-		}
+	if bytes.Contains(p, []byte("\n")) {
+		w.win.Invalidate()
 	}
 
-	return len(p), nil
+    return
 }
 
 func main() {
@@ -70,11 +63,12 @@ func run(window *app.Window) error {
 	var loading atomic.Bool
 	loader := material.Loader(th)
 
-	// var buf bytes.Buffer
-	lw := new(LineWriter)
-
 	ed := widget.Editor{SingleLine: true}
 	editor := material.Editor(th, &ed, "URL")
+
+	var outputEd widget.Editor
+	outputEd.ReadOnly = true
+	lw := &EditorWriter{win: window}
 
 	var downloadClickable widget.Clickable
 	var cancelClickable widget.Clickable
@@ -82,7 +76,6 @@ func run(window *app.Window) error {
 	var list widget.List
 	list.Axis = layout.Vertical
 	list.ScrollToEnd = true
-	var sels []widget.Selectable
 
 	var ops op.Ops
 
@@ -93,7 +86,7 @@ func run(window *app.Window) error {
 		case app.FrameEvent:
 			gtx := app.NewContext(&ops, e)
 
-			if downloadClickable.Clicked(gtx) && ed.Text() != "" {
+			if downloadClickable.Clicked(gtx) && !loading.Load() && ed.Text() != "" {
 				url := ed.Text()
 
 				ctx, cancel := context.WithCancel(context.Background())
@@ -176,44 +169,31 @@ func run(window *app.Window) error {
 			    )
 			}
 
-			output := func(gtx C) D {
-				border := widget.Border{
-					CornerRadius: unit.Dp(3),
-					Width:        unit.Dp(2),
-				}
+		outputEditor := func(gtx C) D {
 
-				termBg := color.NRGBA{R: 20, G: 20, B: 20, A: 255}
-				termFg := color.NRGBA{R: 220, G: 220, B: 220, A: 255}
+			termBg := color.NRGBA{R: 20, G: 20, B: 20, A: 255}
+			termFg := color.NRGBA{R: 220, G: 220, B: 220, A: 255}
 
-				// change backghround
-				stack := clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops)
-				paint.Fill(gtx.Ops, termBg)
-				stack.Pop()
+			// change background
+			stack := clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops)
+			paint.Fill(gtx.Ops, termBg)
+			stack.Pop()
 
-				lst := material.List(th, &list)
-				lst.Indicator.Color = color.NRGBA{R: 180, G: 180, B: 180, A: 255}
-				lst.Track.Color = color.NRGBA{R: 60, G: 60, B: 60, A: 255}
+			e := material.Editor(th, &outputEd, "")
+			e.Color = termFg
+			lst := material.List(th, &list)
+			lst.Indicator.Color = color.NRGBA{R: 180, G: 180, B: 180, A: 255}
+			lst.Track.Color = color.NRGBA{R: 60, G: 60, B: 60, A: 255}
 
-				padding := layout.UniformInset(unit.Dp(10))
+			padding := layout.UniformInset(unit.Dp(15))
 
-				return border.Layout(gtx, func(gtx C) D {
-					return padding.Layout(gtx, func(gtx C) D {
-						lw.mu.Lock()
-						defer lw.mu.Unlock()
+			lw.mu.Lock()
+			outputEd.SetText(lw.buf.String())
+			lw.mu.Unlock()
 
-						for range len(lw.Lines)-len(sels) {
-							sels = append(sels, widget.Selectable{})
-						}
-
-						return lst.Layout(gtx, len(lw.Lines), func(gtx C, i int) D {
-							l := material.Label(th, unit.Sp(12), lw.Lines[i])
-							l.State = &sels[i]
-							l.Color = termFg
-							l.Font.Typeface = "monospace"
-							return l.Layout(gtx)
-						})
-					})
-				})
+			return lst.Layout(gtx, 1, func(gtx C, _ int) D {
+				return padding.Layout(gtx, e.Layout)
+			})
 		}
 
 		column := func(gtx C) D {
@@ -232,7 +212,7 @@ func run(window *app.Window) error {
 					gtx.Constraints.Max.Y = gtx.Dp(300)
 					gtx.Constraints.Min.Y = gtx.Dp(300)
 
-					return layout.Inset{Top: unit.Dp(15)}.Layout(gtx, output)
+					return layout.Inset{Top: unit.Dp(15)}.Layout(gtx, outputEditor)
 				}),
 			)
 		}
