@@ -12,6 +12,8 @@ import (
 	"gioui.org/app"
 	"gioui.org/layout"
 	"gioui.org/op"
+	"gioui.org/op/clip"
+	"gioui.org/op/paint"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
@@ -47,6 +49,29 @@ func run(window *app.Window) error {
 
 	var downloadClickable widget.Clickable
 	var cancelClickable widget.Clickable
+
+	var list widget.List
+	list.Axis = layout.Vertical
+	var logs []string
+	logs = []string{
+		"line 1",
+		"line 2",
+		"line 3",
+		"line 4",
+		"line 5",
+		"line 6",
+		"line 7",
+		"line 8",
+		"line 9",
+		"line 10",
+		"line 11",
+		"line 12",
+		"line 13",
+		"line 14",
+		"line 15",
+		"line 16",
+		"line 17",
+	}
 
 	var ops op.Ops
 
@@ -141,21 +166,40 @@ func run(window *app.Window) error {
 			}
 
 			output := func(gtx C) D {
-			    border := widget.Border{
-			        Color:        color.NRGBA{R: 204, G: 204, B: 204, A: 255},
-			        CornerRadius: unit.Dp(3),
-			        Width:        unit.Dp(2),
-			    }
-			    return border.Layout(gtx, func(gtx C) D {
-					s := buf.String()
-			        return layout.UniformInset(unit.Dp(10)).Layout(gtx, func(gtx C) D {
-			            return material.Label(th, 14, s).Layout(gtx)
-			        })
-			    })
-			}
+				border := widget.Border{
+					Color:        color.NRGBA{R: 204, G: 204, B: 204, A: 255},
+					CornerRadius: unit.Dp(3),
+					Width:        unit.Dp(2),
+				}
 
-			column := func(gtx C) D {
-				width := min(gtx.Constraints.Max.X, gtx.Dp(800))
+				termBg := color.NRGBA{R: 20, G: 20, B: 20, A: 255}
+				termFg := color.NRGBA{R: 220, G: 220, B: 220, A: 255}
+
+				// change backghround
+				stack := clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops)
+				paint.Fill(gtx.Ops, termBg)
+				stack.Pop()
+
+				lst := material.List(th, &list)
+				lst.Indicator.Color = color.NRGBA{R: 180, G: 180, B: 180, A: 255}
+				lst.Track.Color = color.NRGBA{R: 60, G: 60, B: 60, A: 255}
+
+				padding := layout.UniformInset(unit.Dp(10))
+
+				return border.Layout(gtx, func(gtx C) D {
+					return padding.Layout(gtx, func(gtx C) D {
+						return lst.Layout(gtx, len(logs), func(gtx C, i int) D {
+							l := material.Label(th, unit.Sp(12), logs[i])
+							l.Color = termFg
+							l.Font.Typeface = "monospace"
+							return l.Layout(gtx)
+						})
+					})
+				})
+		}
+
+		column := func(gtx C) D {
+			width := min(gtx.Constraints.Max.X, gtx.Dp(800))
 
 				return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 				layout.Rigid(func(gtx C) D {
@@ -166,6 +210,8 @@ func run(window *app.Window) error {
 
 				layout.Rigid(func(gtx C) D {
 					gtx.Constraints.Min.X = width
+					gtx.Constraints.Max.X = width
+					gtx.Constraints.Max.Y = gtx.Dp(300)
 
 					return layout.Inset{Top: unit.Dp(15)}.Layout(gtx, output)
 				}),
