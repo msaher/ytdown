@@ -72,6 +72,11 @@ func run(window *app.Window) error {
 
 	var downloadClickable widget.Clickable
 	var cancelClickable widget.Clickable
+	downloadBtn := material.Button(th, &downloadClickable, "Download")
+	cancelBtn := material.Button(th, &cancelClickable, "Cancel")
+	cancelBtn.Background = color.NRGBA{R: 220, G: 60, B: 60, A: 255}
+	cancelBtn.Color = color.NRGBA{R: 255, G: 255, B: 255, A: 255}
+
 
 	var list widget.List
 	list.Axis = layout.Vertical
@@ -117,11 +122,6 @@ func run(window *app.Window) error {
 					cancelFn = nil
 				}
 			}
-
-			downloadBtn := material.Button(th, &downloadClickable, "Download")
-			cancelBtn := material.Button(th, &cancelClickable, "Cancel")
-			cancelBtn.Background = color.NRGBA{R: 220, G: 60, B: 60, A: 255}
-			cancelBtn.Color = color.NRGBA{R: 255, G: 255, B: 255, A: 255}
 
 			edLayout := func(gtx C) D {
 			    padding := layout.Inset{
@@ -170,7 +170,6 @@ func run(window *app.Window) error {
 			}
 
 		outputEditor := func(gtx C) D {
-
 			termBg := color.NRGBA{R: 20, G: 20, B: 20, A: 255}
 			termFg := color.NRGBA{R: 220, G: 220, B: 220, A: 255}
 
