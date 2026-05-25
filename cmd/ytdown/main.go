@@ -68,8 +68,13 @@ func run(window *app.Window) error {
 	ed := widget.Editor{SingleLine: true}
 	editor := material.Editor(th, &ed, "URL")
 
+	termBg := color.NRGBA{R: 20, G: 20, B: 20, A: 255}
+	termFg := color.NRGBA{R: 220, G: 220, B: 220, A: 255}
 	var outputEd widget.Editor
 	outputEd.ReadOnly = true
+	outputEditor := material.Editor(th, &outputEd, "")
+	outputEditor.Color = termFg
+
 	lw := &EditorWriter{win: window}
 
 	var downloadClickable widget.Clickable
@@ -83,6 +88,9 @@ func run(window *app.Window) error {
 	var list widget.List
 	list.Axis = layout.Vertical
 	list.ScrollToEnd = true
+	lst := material.List(th, &list)
+	lst.Indicator.Color = color.NRGBA{R: 180, G: 180, B: 180, A: 255}
+	lst.Track.Color = color.NRGBA{R: 60, G: 60, B: 60, A: 255}
 
 	var ops op.Ops
 
@@ -171,20 +179,11 @@ func run(window *app.Window) error {
 			    )
 			}
 
-		outputEditor := func(gtx C) D {
-			termBg := color.NRGBA{R: 20, G: 20, B: 20, A: 255}
-			termFg := color.NRGBA{R: 220, G: 220, B: 220, A: 255}
-
+		output := func(gtx C) D {
 			// change background
 			stack := clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops)
 			paint.Fill(gtx.Ops, termBg)
 			stack.Pop()
-
-			e := material.Editor(th, &outputEd, "")
-			e.Color = termFg
-			lst := material.List(th, &list)
-			lst.Indicator.Color = color.NRGBA{R: 180, G: 180, B: 180, A: 255}
-			lst.Track.Color = color.NRGBA{R: 60, G: 60, B: 60, A: 255}
 
 			padding := layout.UniformInset(unit.Dp(15))
 
@@ -196,7 +195,7 @@ func run(window *app.Window) error {
 			lw.mu.Unlock()
 
 			return lst.Layout(gtx, 1, func(gtx C, _ int) D {
-				return padding.Layout(gtx, e.Layout)
+				return padding.Layout(gtx, outputEditor.Layout)
 			})
 		}
 
@@ -215,14 +214,11 @@ func run(window *app.Window) error {
 					gtx.Constraints.Max.X = width
 					gtx.Constraints.Max.Y = gtx.Dp(300)
 					gtx.Constraints.Min.Y = gtx.Dp(300)
-
-					return layout.Inset{Top: unit.Dp(15)}.Layout(gtx, outputEditor)
+					return layout.Inset{Top: unit.Dp(15)}.Layout(gtx, output)
 				}),
 			)
 		}
-
 			layout.Center.Layout(gtx, column)
-
 			e.Frame(gtx.Ops)
 		}
 	}
