@@ -32,11 +32,11 @@ func main() {
 }
 
 func center(gtx C, w layout.Widget) D {
-    return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
-        layout.Flexed(1, layout.Spacer{}.Layout),
-        layout.Rigid(w),
-        layout.Flexed(1, layout.Spacer{}.Layout),
-    )
+	return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+		layout.Flexed(1, layout.Spacer{}.Layout),
+		layout.Rigid(w),
+		layout.Flexed(1, layout.Spacer{}.Layout),
+	)
 }
 
 func run(window *app.Window) error {
@@ -47,7 +47,7 @@ func run(window *app.Window) error {
 	var loading atomic.Bool
 	loader := material.Loader(th)
 
-	ed := widget.Editor {SingleLine: true}
+	ed := widget.Editor{SingleLine: true}
 	editor := material.Editor(th, &ed, "URL")
 
 	var downloadClickable widget.Clickable
@@ -77,12 +77,12 @@ func run(window *app.Window) error {
 				loading.Store(true)
 
 				go func() {
-				    err := cmd.Wait()
-				    loading.Store(false)
-				    if err != nil {
-				        log.Println(err)
-				    }
-				    window.Invalidate()
+					err := cmd.Wait()
+					loading.Store(false)
+					if err != nil {
+						log.Println(err)
+					}
+					window.Invalidate()
 				}()
 			}
 
@@ -97,8 +97,8 @@ func run(window *app.Window) error {
 				margins := layout.Inset{
 					// Top:    unit.Dp(25),
 					// Bottom: unit.Dp(25),
-					Right:  unit.Dp(35),
-					Left:   unit.Dp(35),
+					Right: unit.Dp(35),
+					Left:  unit.Dp(35),
 				}
 
 				padding := layout.Inset{
@@ -130,7 +130,7 @@ func run(window *app.Window) error {
 
 			form := func(gtx C) D {
 				return layout.Flex{
-					Axis: layout.Horizontal,
+					Axis:      layout.Horizontal,
 					Alignment: layout.Middle,
 				}.Layout(gtx,
 					layout.Flexed(1, func(gtx C) D {
@@ -148,20 +148,20 @@ func run(window *app.Window) error {
 						return layout.Spacer{}.Layout(gtx)
 					}),
 					layout.Rigid(func(gtx C) D {
-					    return layout.Inset{Left: unit.Dp(5)}.Layout(gtx, func(gtx C) D {
-					        if loading.Load() {
-					            gtx = gtx.Disabled()
-					        }
-					        return downloadBtn.Layout(gtx)
-					    })
+						return layout.Inset{Left: unit.Dp(5)}.Layout(gtx, func(gtx C) D {
+							if loading.Load() {
+								gtx = gtx.Disabled()
+							}
+							return downloadBtn.Layout(gtx)
+						})
 					}),
 					layout.Rigid(func(gtx C) D {
-					    return layout.Inset{Left: unit.Dp(5)}.Layout(gtx, func(gtx C) D {
-					        if !loading.Load() {
-					            gtx = gtx.Disabled()
-					        }
-					        return cancelBtn.Layout(gtx)
-					    })
+						return layout.Inset{Left: unit.Dp(5)}.Layout(gtx, func(gtx C) D {
+							if !loading.Load() {
+								gtx = gtx.Disabled()
+							}
+							return cancelBtn.Layout(gtx)
+						})
 					}),
 					layout.Flexed(1, func(gtx C) D {
 						return layout.Spacer{}.Layout(gtx)
@@ -170,14 +170,13 @@ func run(window *app.Window) error {
 			}
 
 			layout.Flex{
-				Axis: layout.Vertical,
+				Axis:    layout.Vertical,
 				Spacing: layout.SpaceEnd,
 			}.Layout(gtx,
 				layout.Flexed(1, layout.Spacer{Height: unit.Dp(25)}.Layout),
 				layout.Rigid(form),
 				layout.Flexed(1, func(gtx C) D { return layout.Spacer{}.Layout(gtx) }),
 			)
-
 
 			e.Frame(gtx.Ops)
 		}
