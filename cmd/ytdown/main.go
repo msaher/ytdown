@@ -25,9 +25,9 @@ type D = layout.Dimensions
 
 // doesn't actually write to editor because Gio widgets aren't thread safe
 type EditorWriter struct {
-    mu   sync.Mutex
-    buf bytes.Buffer
-    win  *app.Window
+	mu    sync.Mutex
+	buf   bytes.Buffer
+	win   *app.Window
 	dirty bool
 }
 
@@ -42,7 +42,7 @@ func (w *EditorWriter) Write(p []byte) (n int, err error) {
 		w.win.Invalidate()
 	}
 
-    return
+	return
 }
 
 func main() {
@@ -83,7 +83,6 @@ func run(window *app.Window) error {
 	cancelBtn := material.Button(th, &cancelClickable, "Cancel")
 	cancelBtn.Background = color.NRGBA{R: 220, G: 60, B: 60, A: 255}
 	cancelBtn.Color = color.NRGBA{R: 255, G: 255, B: 255, A: 255}
-
 
 	var list widget.List
 	list.Axis = layout.Vertical
@@ -134,90 +133,90 @@ func run(window *app.Window) error {
 			}
 
 			edLayout := func(gtx C) D {
-			    padding := layout.Inset{
-			        Top: unit.Dp(10), Bottom: unit.Dp(10),
-			        Right: unit.Dp(10), Left: unit.Dp(10),
-			    }
-			    border := widget.Border{
-			        Color:        color.NRGBA{R: 204, G: 204, B: 204, A: 255},
-			        CornerRadius: unit.Dp(3),
-			        Width:        unit.Dp(2),
-			    }
-			    return border.Layout(gtx, func(gtx C) D {
-			        return padding.Layout(gtx, editor.Layout)
-			    })
+				padding := layout.Inset{
+					Top: unit.Dp(10), Bottom: unit.Dp(10),
+					Right: unit.Dp(10), Left: unit.Dp(10),
+				}
+				border := widget.Border{
+					Color:        color.NRGBA{R: 204, G: 204, B: 204, A: 255},
+					CornerRadius: unit.Dp(3),
+					Width:        unit.Dp(2),
+				}
+				return border.Layout(gtx, func(gtx C) D {
+					return padding.Layout(gtx, editor.Layout)
+				})
 			}
 
 			form := func(gtx C) D {
 				return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
-			        layout.Flexed(1, edLayout),
+					layout.Flexed(1, edLayout),
 					layout.Rigid(layout.Spacer{Width: unit.Dp(8)}.Layout),
-			        layout.Rigid(func(gtx C) D {
-			            gtx.Constraints.Min.X = gtx.Dp(24)
-			            gtx.Constraints.Max.X = gtx.Dp(24)
-			            if loading.Load() {
-			                return loader.Layout(gtx)
-			            }
-			            return layout.Spacer{}.Layout(gtx)
-			        }),
-			        layout.Rigid(func(gtx C) D {
-			            return layout.Inset{Left: unit.Dp(10)}.Layout(gtx, func(gtx C) D {
-			                if loading.Load() {
-			                    gtx = gtx.Disabled()
-			                }
-			                return downloadBtn.Layout(gtx)
-			            })
-			        }),
-			        layout.Rigid(func(gtx C) D {
-			            return layout.Inset{Left: unit.Dp(5)}.Layout(gtx, func(gtx C) D {
-			                if !loading.Load() {
-			                    gtx = gtx.Disabled()
-			                }
-			                return cancelBtn.Layout(gtx)
-			            })
-			        }),
-			    )
+					layout.Rigid(func(gtx C) D {
+						gtx.Constraints.Min.X = gtx.Dp(24)
+						gtx.Constraints.Max.X = gtx.Dp(24)
+						if loading.Load() {
+							return loader.Layout(gtx)
+						}
+						return layout.Spacer{}.Layout(gtx)
+					}),
+					layout.Rigid(func(gtx C) D {
+						return layout.Inset{Left: unit.Dp(10)}.Layout(gtx, func(gtx C) D {
+							if loading.Load() {
+								gtx = gtx.Disabled()
+							}
+							return downloadBtn.Layout(gtx)
+						})
+					}),
+					layout.Rigid(func(gtx C) D {
+						return layout.Inset{Left: unit.Dp(5)}.Layout(gtx, func(gtx C) D {
+							if !loading.Load() {
+								gtx = gtx.Disabled()
+							}
+							return cancelBtn.Layout(gtx)
+						})
+					}),
+				)
 			}
 
-		output := func(gtx C) D {
-			// change background
-			stack := clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops)
-			paint.Fill(gtx.Ops, termBg)
-			stack.Pop()
+			output := func(gtx C) D {
+				// change background
+				stack := clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops)
+				paint.Fill(gtx.Ops, termBg)
+				stack.Pop()
 
-			padding := layout.UniformInset(unit.Dp(15))
+				padding := layout.UniformInset(unit.Dp(15))
 
-			lw.mu.Lock()
-			if lw.dirty {
-			    outputEd.SetText(lw.buf.String())
-			    lw.dirty = false
+				lw.mu.Lock()
+				if lw.dirty {
+					outputEd.SetText(lw.buf.String())
+					lw.dirty = false
+				}
+				lw.mu.Unlock()
+
+				return lst.Layout(gtx, 1, func(gtx C, _ int) D {
+					return padding.Layout(gtx, outputEditor.Layout)
+				})
 			}
-			lw.mu.Unlock()
 
-			return lst.Layout(gtx, 1, func(gtx C, _ int) D {
-				return padding.Layout(gtx, outputEditor.Layout)
-			})
-		}
-
-		column := func(gtx C) D {
-			width := min(gtx.Constraints.Max.X, gtx.Dp(800))
+			column := func(gtx C) D {
+				width := min(gtx.Constraints.Max.X, gtx.Dp(800))
 
 				return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-				layout.Rigid(func(gtx C) D {
-					gtx.Constraints.Min.X = width
-					gtx.Constraints.Max.X = width
-					return form(gtx)
-				}),
+					layout.Rigid(func(gtx C) D {
+						gtx.Constraints.Min.X = width
+						gtx.Constraints.Max.X = width
+						return form(gtx)
+					}),
 
-				layout.Rigid(func(gtx C) D {
-					gtx.Constraints.Min.X = width
-					gtx.Constraints.Max.X = width
-					gtx.Constraints.Max.Y = gtx.Dp(300)
-					gtx.Constraints.Min.Y = gtx.Dp(300)
-					return layout.Inset{Top: unit.Dp(15)}.Layout(gtx, output)
-				}),
-			)
-		}
+					layout.Rigid(func(gtx C) D {
+						gtx.Constraints.Min.X = width
+						gtx.Constraints.Max.X = width
+						gtx.Constraints.Max.Y = gtx.Dp(300)
+						gtx.Constraints.Min.Y = gtx.Dp(300)
+						return layout.Inset{Top: unit.Dp(15)}.Layout(gtx, output)
+					}),
+				)
+			}
 			layout.Center.Layout(gtx, column)
 			e.Frame(gtx.Ops)
 		}
