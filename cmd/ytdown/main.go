@@ -1,12 +1,13 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"image/color"
 	"log"
 	"os"
 	"os/exec"
+	"strings"
+	"sync"
 	"sync/atomic"
 
 	"gioui.org/app"
@@ -21,6 +22,33 @@ import (
 
 type C = layout.Context
 type D = layout.Dimensions
+
+type LineWriter struct {
+	Lines []string
+	cur   strings.Builder
+	mu    sync.Mutex
+}
+
+func (lw *LineWriter) Write(p []byte) (int, error) {
+	lw.mu.Lock()
+	defer lw.mu.Unlock()
+
+	for _, b := range p {
+		switch b {
+		case '\r':
+			continue
+
+		case '\n':
+			lw.Lines = append(lw.Lines, lw.cur.String())
+			lw.cur.Reset()
+
+		default:
+			lw.cur.WriteByte(b)
+		}
+	}
+
+	return len(p), nil
+}
 
 func main() {
 	go func() {
@@ -42,7 +70,8 @@ func run(window *app.Window) error {
 	var loading atomic.Bool
 	loader := material.Loader(th)
 
-	var buf bytes.Buffer
+	// var buf bytes.Buffer
+	lw := new(LineWriter)
 
 	ed := widget.Editor{SingleLine: true}
 	editor := material.Editor(th, &ed, "URL")
@@ -52,26 +81,8 @@ func run(window *app.Window) error {
 
 	var list widget.List
 	list.Axis = layout.Vertical
-	var logs []string
-	logs = []string{
-		"line 1",
-		"line 2",
-		"line 3",
-		"line 4",
-		"line 5",
-		"line 6",
-		"line 7",
-		"line 8",
-		"line 9",
-		"line 10",
-		"line 11",
-		"line 12",
-		"line 13",
-		"line 14",
-		"line 15",
-		"line 16",
-		"line 17",
-	}
+	list.ScrollToEnd = true
+	var sels []widget.Selectable
 
 	var ops op.Ops
 
@@ -88,8 +99,8 @@ func run(window *app.Window) error {
 				ctx, cancel := context.WithCancel(context.Background())
 				cancelFn = cancel
 				cmd := exec.CommandContext(ctx, "yt-dlp", url)
-				cmd.Stdout = &buf
-				cmd.Stderr = &buf
+				cmd.Stdout = lw
+				cmd.Stderr = lw
 
 				err := cmd.Start()
 				if err != nil {
@@ -167,7 +178,6 @@ func run(window *app.Window) error {
 
 			output := func(gtx C) D {
 				border := widget.Border{
-					Color:        color.NRGBA{R: 204, G: 204, B: 204, A: 255},
 					CornerRadius: unit.Dp(3),
 					Width:        unit.Dp(2),
 				}
@@ -188,8 +198,16 @@ func run(window *app.Window) error {
 
 				return border.Layout(gtx, func(gtx C) D {
 					return padding.Layout(gtx, func(gtx C) D {
-						return lst.Layout(gtx, len(logs), func(gtx C, i int) D {
-							l := material.Label(th, unit.Sp(12), logs[i])
+						lw.mu.Lock()
+						defer lw.mu.Unlock()
+
+						for range len(lw.Lines)-len(sels) {
+							sels = append(sels, widget.Selectable{})
+						}
+
+						return lst.Layout(gtx, len(lw.Lines), func(gtx C, i int) D {
+							l := material.Label(th, unit.Sp(12), lw.Lines[i])
+							l.State = &sels[i]
 							l.Color = termFg
 							l.Font.Typeface = "monospace"
 							return l.Layout(gtx)
@@ -212,6 +230,7 @@ func run(window *app.Window) error {
 					gtx.Constraints.Min.X = width
 					gtx.Constraints.Max.X = width
 					gtx.Constraints.Max.Y = gtx.Dp(300)
+					gtx.Constraints.Min.Y = gtx.Dp(300)
 
 					return layout.Inset{Top: unit.Dp(15)}.Layout(gtx, output)
 				}),
