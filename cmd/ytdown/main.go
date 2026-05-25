@@ -28,6 +28,7 @@ type EditorWriter struct {
     mu   sync.Mutex
     buf bytes.Buffer
     win  *app.Window
+	dirty bool
 }
 
 func (w *EditorWriter) Write(p []byte) (n int, err error) {
@@ -37,6 +38,7 @@ func (w *EditorWriter) Write(p []byte) (n int, err error) {
 	w.mu.Unlock()
 
 	if bytes.Contains(p, []byte("\n")) {
+		w.dirty = true
 		w.win.Invalidate()
 	}
 
@@ -187,7 +189,10 @@ func run(window *app.Window) error {
 			padding := layout.UniformInset(unit.Dp(15))
 
 			lw.mu.Lock()
-			outputEd.SetText(lw.buf.String())
+			if lw.dirty {
+			    outputEd.SetText(lw.buf.String())
+			    lw.dirty = false
+			}
 			lw.mu.Unlock()
 
 			return lst.Layout(gtx, 1, func(gtx C, _ int) D {
