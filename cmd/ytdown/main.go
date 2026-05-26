@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 
@@ -18,6 +19,7 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"github.com/sqweek/dialog"
 )
 
 type C = layout.Context
@@ -91,6 +93,12 @@ func run(window *app.Window) error {
 	lst.Indicator.Color = color.NRGBA{R: 180, G: 180, B: 180, A: 255}
 	lst.Track.Color = color.NRGBA{R: 60, G: 60, B: 60, A: 255}
 
+	var audioOnly widget.Bool
+
+	var browseBtn widget.Clickable
+
+	outputDir, _ := desktopPath()
+
 	var ops op.Ops
 
 	for {
@@ -132,6 +140,16 @@ func run(window *app.Window) error {
 				}
 			}
 
+			if browseBtn.Clicked(gtx) {
+				go func() {
+					directory, err := dialog.Directory().SetStartDir(outputDir).Browse()
+					if nil == err {
+						outputDir = directory
+						window.Invalidate()
+					}
+				}()
+			}
+
 			edLayout := func(gtx C) D {
 				padding := layout.Inset{
 					Top: unit.Dp(10), Bottom: unit.Dp(10),
@@ -147,7 +165,7 @@ func run(window *app.Window) error {
 				})
 			}
 
-			form := func(gtx C) D {
+			row1 := func(gtx C) D {
 				return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
 					layout.Flexed(1, edLayout),
 					layout.Rigid(layout.Spacer{Width: unit.Dp(8)}.Layout),
@@ -175,6 +193,48 @@ func run(window *app.Window) error {
 							return cancelBtn.Layout(gtx)
 						})
 					}),
+				)
+			}
+
+			row2 := func(gtx C) D {
+				return layout.Flex{
+					Axis:      layout.Horizontal,
+					Spacing:   layout.SpaceBetween,
+					Alignment: layout.Middle,
+					Gap:       gtx.Dp(10),
+				}.Layout(gtx,
+					layout.Flexed(0.4, func(gtx C) D {
+
+						padding := layout.Inset{
+							Top: unit.Dp(10), Bottom: unit.Dp(10),
+							Right: unit.Dp(10), Left: unit.Dp(10),
+						}
+						border := widget.Border{
+							Color:        color.NRGBA{R: 204, G: 204, B: 204, A: 255},
+							CornerRadius: unit.Dp(3),
+							Width:        unit.Dp(2),
+						}
+
+						e := material.H6(th, outputDir)
+						return border.Layout(gtx, func(gtx C) D {
+							return padding.Layout(gtx, e.Layout)
+						})
+					}),
+					layout.Rigid(func(gtx C) D {
+						btn := material.Button(th, &browseBtn, "Browse")
+						return btn.Layout(gtx)
+					}),
+					layout.Flexed(0.3, material.CheckBox(th, &audioOnly, "Audio only").Layout),
+				)
+			}
+
+			form := func(gtx C) D {
+				return layout.Flex{
+					Axis: layout.Vertical,
+					Gap:  gtx.Dp(10),
+				}.Layout(gtx,
+					layout.Rigid(row1),
+					layout.Rigid(row2),
 				)
 			}
 
@@ -221,4 +281,12 @@ func run(window *app.Window) error {
 			e.Frame(gtx.Ops)
 		}
 	}
+}
+
+func desktopPath() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(home, "Desktop"), nil
 }
