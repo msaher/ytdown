@@ -273,8 +273,16 @@ func run(window *app.Window) error {
 
 			column := func(gtx C) D {
 				width := min(gtx.Constraints.Max.X, gtx.Dp(800))
-
-				return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+				return layout.Flex{
+					Axis: layout.Vertical,
+					Alignment: layout.Middle,
+				}.Layout(gtx,
+					layout.Rigid(func(gtx C) D {
+						gtx.Constraints.Min.X = 0
+						h := material.H3(th, "YTDown")
+						margin := layout.Inset{Bottom: unit.Dp(50)}
+						return margin.Layout(gtx, h.Layout)
+					}),
 					layout.Rigid(func(gtx C) D {
 						gtx.Constraints.Min.X = width
 						gtx.Constraints.Max.X = width
