@@ -342,9 +342,15 @@ func ensureYtDlp(w io.Writer) (string, error) {
 	path := filepath.Join(dir, name)
 
 	if _, err := os.Stat(path); err == nil {
+		io.WriteString(w, "checking for yt-dlp updates...\n")
+		cmd := exec.Command(path, "-U")
+		cmd.Stdout = w
+		cmd.Stderr = w
+		cmd.Run()
 		return path, nil
 	}
 
+	// download yt-dlp
 	url := "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp"
 	if runtime.GOOS == "windows" {
 		url += ".exe"
