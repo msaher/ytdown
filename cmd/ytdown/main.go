@@ -4,12 +4,16 @@ import (
 	"bytes"
 	"context"
 	"image/color"
+	"io"
 	"log"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"sync/atomic"
+	"fmt"
 
 	"gioui.org/app"
 	"gioui.org/layout"
@@ -25,7 +29,8 @@ import (
 type C = layout.Context
 type D = layout.Dimensions
 
-// doesn't actually write to editor because Gio widgets aren't thread safe
+// doesn't actually write to editor because Gio widgets aren't thread safe.
+// Insetad we use a dirty flag and call win.Invalidate()
 type EditorWriter struct {
 	mu    sync.Mutex
 	buf   bytes.Buffer
@@ -47,34 +52,40 @@ func (w *EditorWriter) Write(p []byte) (n int, err error) {
 	return
 }
 
-func main() {
-	go func() {
-		window := new(app.Window)
-		err := run(window)
-		if err != nil {
-			log.Fatal(err)
-		}
-		os.Exit(0)
-	}()
-	app.Main()
-}
-
 func run(window *app.Window) error {
-	var cancelFn context.CancelFunc
 
+	lw := &EditorWriter{win: window}
+	var loading atomic.Bool
+	var ytDlpPath string // thread-safe because guraded by `loading`
+
+	// ensure yt-dlp exists
+	go func() {
+		loading.Store(true)
+		io.WriteString(lw, "checking yt-dlp installation...\n")
+		pth, err := ensureYtDlp(lw)
+		if err != nil {
+			log.Println(err)
+			io.WriteString(lw, err.Error() + "\n")
+		} else {
+			io.WriteString(lw, "yt-dlp Ready!\n")
+			ytDlpPath = pth
+		}
+		loading.Store(false)
+		window.Invalidate()
+	}()
+
+	var cancelFn context.CancelFunc
 	th := material.NewTheme()
 
-	var loading atomic.Bool
 	ed := widget.Editor{SingleLine: true}
 	outputEd := widget.Editor{ReadOnly: true}
-	lw := &EditorWriter{win: window}
 
 	var downloadBtn widget.Clickable
 	var cancelBtn widget.Clickable
 
 	var list widget.List
 	list.Axis = layout.Vertical
-	list.ScrollToEnd = true
+	list.ScrollToEnd = false
 
 	var audioOnly widget.Bool
 
@@ -91,7 +102,7 @@ func run(window *app.Window) error {
 		case app.FrameEvent:
 			gtx := app.NewContext(&ops, e)
 
-			if downloadBtn.Clicked(gtx) && !loading.Load() && ed.Text() != "" {
+			if downloadBtn.Clicked(gtx) && !loading.Load() && ed.Text() != "" && ytDlpPath != "" {
 				url := ed.Text()
 
 				ctx, cancel := context.WithCancel(context.Background())
@@ -99,7 +110,7 @@ func run(window *app.Window) error {
 
 				// build cmd
 				args := []string{
-					"yt-dlp",
+					ytDlpPath,
 					"--embed-thumbnail",
 					"--embed-metadata",
 					"--embed-chapters",
@@ -311,3 +322,68 @@ func desktopPath() (string, error) {
 	}
 	return filepath.Join(home, "Desktop"), nil
 }
+
+func ensureYtDlp(w io.Writer) (string, error) {
+	cache, err := os.UserCacheDir()
+	if err != nil {
+		return "", err
+	}
+
+	dir := filepath.Join(cache, "ytdown")
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return "", err
+	}
+
+	name := "yt-dlp"
+	if runtime.GOOS == "windows" {
+		name += ".exe"
+	}
+
+	path := filepath.Join(dir, name)
+
+	if _, err := os.Stat(path); err == nil {
+		return path, nil
+	}
+
+	url := "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp"
+	if runtime.GOOS == "windows" {
+		url += ".exe"
+	}
+
+	io.WriteString(w, "downloading yt-dlp...\n")
+	resp, err := http.Get(url)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return "", fmt.Errorf("download failed: %s", resp.Status)
+	}
+
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0755)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+
+	if _, err := io.Copy(f, resp.Body); err != nil {
+		return "", err
+	}
+
+	return path, nil
+}
+
+
+func main() {
+	go func() {
+		window := new(app.Window)
+		err := run(window)
+		if err != nil {
+			log.Fatal(err)
+		}
+		os.Exit(0)
+	}()
+	app.Main()
+}
+
