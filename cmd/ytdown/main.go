@@ -96,9 +96,24 @@ func run(window *app.Window) error {
 
 				ctx, cancel := context.WithCancel(context.Background())
 				cancelFn = cancel
-				cmd := exec.CommandContext(ctx, "yt-dlp", url)
+
+				// build cmd
+				args := []string{
+					"yt-dlp",
+					"--embed-thumbnail",
+					"--embed-metadata",
+					"--embed-chapters",
+					"--embed-info-json",
+					"--xattrs",
+				}
+				if audioOnly.Value {
+					args = append(args, "-x")
+				}
+				args = append(args, url)
+				cmd := exec.CommandContext(ctx, args[0], args[1:]...)
 				cmd.Stdout = lw
 				cmd.Stderr = lw
+				cmd.Dir = outputDir
 
 				err := cmd.Start()
 				if err != nil {
