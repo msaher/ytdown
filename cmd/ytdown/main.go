@@ -65,33 +65,16 @@ func run(window *app.Window) error {
 	th := material.NewTheme()
 
 	var loading atomic.Bool
-	loader := material.Loader(th)
-
 	ed := widget.Editor{SingleLine: true}
-	editor := material.Editor(th, &ed, "URL")
-
-	termBg := color.NRGBA{R: 20, G: 20, B: 20, A: 255}
-	termFg := color.NRGBA{R: 220, G: 220, B: 220, A: 255}
-	var outputEd widget.Editor
-	outputEd.ReadOnly = true
-	outputEditor := material.Editor(th, &outputEd, "")
-	outputEditor.Color = termFg
-
+	outputEd := widget.Editor{ReadOnly: true}
 	lw := &EditorWriter{win: window}
 
-	var downloadClickable widget.Clickable
-	var cancelClickable widget.Clickable
-	downloadBtn := material.Button(th, &downloadClickable, "Download")
-	cancelBtn := material.Button(th, &cancelClickable, "Cancel")
-	cancelBtn.Background = color.NRGBA{R: 220, G: 60, B: 60, A: 255}
-	cancelBtn.Color = color.NRGBA{R: 255, G: 255, B: 255, A: 255}
+	var downloadBtn widget.Clickable
+	var cancelBtn widget.Clickable
 
 	var list widget.List
 	list.Axis = layout.Vertical
 	list.ScrollToEnd = true
-	lst := material.List(th, &list)
-	lst.Indicator.Color = color.NRGBA{R: 180, G: 180, B: 180, A: 255}
-	lst.Track.Color = color.NRGBA{R: 60, G: 60, B: 60, A: 255}
 
 	var audioOnly widget.Bool
 
@@ -108,7 +91,7 @@ func run(window *app.Window) error {
 		case app.FrameEvent:
 			gtx := app.NewContext(&ops, e)
 
-			if downloadClickable.Clicked(gtx) && !loading.Load() && ed.Text() != "" {
+			if downloadBtn.Clicked(gtx) && !loading.Load() && ed.Text() != "" {
 				url := ed.Text()
 
 				ctx, cancel := context.WithCancel(context.Background())
@@ -133,7 +116,7 @@ func run(window *app.Window) error {
 				}()
 			}
 
-			if cancelClickable.Clicked(gtx) {
+			if cancelBtn.Clicked(gtx) {
 				if cancelFn != nil {
 					cancelFn()
 					cancelFn = nil
@@ -151,6 +134,7 @@ func run(window *app.Window) error {
 			}
 
 			edLayout := func(gtx C) D {
+				e := material.Editor(th, &ed, "URL")
 				padding := layout.Inset{
 					Top: unit.Dp(10), Bottom: unit.Dp(10),
 					Right: unit.Dp(10), Left: unit.Dp(10),
@@ -161,7 +145,7 @@ func run(window *app.Window) error {
 					Width:        unit.Dp(2),
 				}
 				return border.Layout(gtx, func(gtx C) D {
-					return padding.Layout(gtx, editor.Layout)
+					return padding.Layout(gtx, e.Layout)
 				})
 			}
 
@@ -173,7 +157,7 @@ func run(window *app.Window) error {
 						gtx.Constraints.Min.X = gtx.Dp(24)
 						gtx.Constraints.Max.X = gtx.Dp(24)
 						if loading.Load() {
-							return loader.Layout(gtx)
+							return material.Loader(th).Layout(gtx)
 						}
 						return layout.Spacer{}.Layout(gtx)
 					}),
@@ -182,7 +166,8 @@ func run(window *app.Window) error {
 							if loading.Load() {
 								gtx = gtx.Disabled()
 							}
-							return downloadBtn.Layout(gtx)
+							btn := material.Button(th, &downloadBtn, "Download")
+							return btn.Layout(gtx)
 						})
 					}),
 					layout.Rigid(func(gtx C) D {
@@ -190,7 +175,12 @@ func run(window *app.Window) error {
 							if !loading.Load() {
 								gtx = gtx.Disabled()
 							}
-							return cancelBtn.Layout(gtx)
+
+							btn := material.Button(th, &cancelBtn, "Cancel")
+							btn.Background = color.NRGBA{R: 220, G: 60, B: 60, A: 255}
+							btn.Color = color.NRGBA{R: 255, G: 255, B: 255, A: 255}
+
+							return btn.Layout(gtx)
 						})
 					}),
 				)
@@ -240,6 +230,11 @@ func run(window *app.Window) error {
 
 			output := func(gtx C) D {
 				// change background
+				termBg := color.NRGBA{R: 20, G: 20, B: 20, A: 255}
+				termFg := color.NRGBA{R: 220, G: 220, B: 220, A: 255}
+				e := material.Editor(th, &outputEd, "")
+				e.Color = termFg
+
 				stack := clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops)
 				paint.Fill(gtx.Ops, termBg)
 				stack.Pop()
@@ -253,8 +248,11 @@ func run(window *app.Window) error {
 				}
 				lw.mu.Unlock()
 
+				lst := material.List(th, &list)
+				lst.Indicator.Color = color.NRGBA{R: 180, G: 180, B: 180, A: 255}
+				lst.Track.Color = color.NRGBA{R: 60, G: 60, B: 60, A: 255}
 				return lst.Layout(gtx, 1, func(gtx C, _ int) D {
-					return padding.Layout(gtx, outputEditor.Layout)
+					return padding.Layout(gtx, e.Layout)
 				})
 			}
 
