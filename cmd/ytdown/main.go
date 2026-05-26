@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"image/color"
 	"io"
 	"log"
@@ -13,7 +14,6 @@ import (
 	"runtime"
 	"sync"
 	"sync/atomic"
-	"fmt"
 
 	"gioui.org/app"
 	"gioui.org/layout"
@@ -65,7 +65,7 @@ func run(window *app.Window) error {
 		pth, err := ensureYtDlp(lw)
 		if err != nil {
 			log.Println(err)
-			io.WriteString(lw, err.Error() + "\n")
+			io.WriteString(lw, err.Error()+"\n")
 		} else {
 			io.WriteString(lw, "yt-dlp Ready!\n")
 			ytDlpPath = pth
@@ -285,7 +285,7 @@ func run(window *app.Window) error {
 			column := func(gtx C) D {
 				width := min(gtx.Constraints.Max.X, gtx.Dp(800))
 				return layout.Flex{
-					Axis: layout.Vertical,
+					Axis:      layout.Vertical,
 					Alignment: layout.Middle,
 				}.Layout(gtx,
 					layout.Rigid(func(gtx C) D {
@@ -385,7 +385,6 @@ func ensureYtDlp(w io.Writer) (string, error) {
 
 	return path, nil
 }
-
 
 func main() {
 	go func() {
