@@ -390,6 +390,8 @@ func ensureYtDlp(w io.Writer) (string, error) {
 func main() {
 	go func() {
 		window := new(app.Window)
+		window.Option(app.Title("ytdown"))
+		window.Option(app.Size(unit.Dp(900), unit.Dp(600)))
 		err := run(window)
 		if err != nil {
 			log.Fatal(err)
