@@ -320,7 +320,13 @@ func desktopPath() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, "Desktop"), nil
+	// try to put it in Dkestop. If not fallback to home directory
+	desk := filepath.Join(home, "Desktop")
+	_, err = os.Stat(desk)
+	if err != nil {
+		return home, nil
+	}
+	return desk, nil
 }
 
 func ensureYtDlp(w io.Writer) (string, error) {
